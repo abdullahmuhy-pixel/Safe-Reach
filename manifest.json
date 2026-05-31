@@ -1,4 +1,5 @@
 {
+  "id": "./",
   "name": "SafeReach — Emergency Services Finder",
   "short_name": "SafeReach",
   "description": "Find hospitals, police stations, vets, pharmacies, clinics, and embassies anywhere in the world. Emergency services finder for travellers.",
@@ -67,15 +68,6 @@
       "description": "Search nearby police stations",
       "url": "./?cat=police",
       "icons": [{"src": "./icon-192.png", "sizes": "192x192"}]
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "./icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "SafeReach home screen"
     }
   ],
   "prefer_related_applications": false,

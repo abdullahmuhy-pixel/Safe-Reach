@@ -35,6 +35,7 @@ self.addEventListener('install', e => {
     await Promise.allSettled([
       fetch('./index.html',           { cache: 'reload' }).then(r => r.ok && cache.put('./index.html',           r)),
       fetch('./manifest.json',        { cache: 'reload' }).then(r => r.ok && cache.put('./manifest.json',        r)),
+      fetch('./favicon.webp',         { cache: 'reload' }).then(r => r.ok && cache.put('./favicon.webp',         r)),
       fetch('./icon-96.png',          { cache: 'reload' }).then(r => r.ok && cache.put('./icon-96.png',          r)),
       fetch('./icon-192.png',         { cache: 'reload' }).then(r => r.ok && cache.put('./icon-192.png',         r)),
       fetch('./icon-512.png',         { cache: 'reload' }).then(r => r.ok && cache.put('./icon-512.png',         r)),

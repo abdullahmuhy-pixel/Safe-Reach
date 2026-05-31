@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="96x96"  href="icon-96.png">
-<link rel="shortcut icon" href="favicon.ico">
+<link rel="shortcut icon" type="image/webp" href="favicon.webp">
 <link rel="manifest" href="manifest.json">
 <title>SafeReach — Emergency Services Finder</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -2270,26 +2270,63 @@ function clearReports(){
 // ── PWA Install Prompt ────────────────────────────────────────
 let _installPrompt = null;
 
+const _isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                      || window.navigator.standalone === true;
+const _isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const _isAndroid    = /android/i.test(navigator.userAgent);
+
+// ── Native prompt (Chrome/Edge on Android & Desktop) ─────────
+// beforeinstallprompt fires only when Chrome decides conditions are met.
+// We capture it so triggerInstall() can call it directly.
 window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();                          // stop browser mini-infobar
-  _installPrompt = e;                          // save for later
-  document.getElementById('install-btn')?.classList.add('visible');
+  e.preventDefault();       // suppress the automatic mini-infobar
+  _installPrompt = e;       // save so triggerInstall() can use it
+  showInstallBtn();
 });
 
+// Hide button once installed
 window.addEventListener('appinstalled', () => {
   _installPrompt = null;
   document.getElementById('install-btn')?.classList.remove('visible');
   if (typeof showToast === 'function') showToast('✅ SafeReach installed!');
 });
 
+// ── Universal fallback ────────────────────────────────────────
+// beforeinstallprompt is unreliable: Chrome suppresses it after a dismissal
+// cooldown (days/weeks), Samsung Internet / Firefox never fire it, iOS never
+// fires it. So we show the button to every non-standalone user regardless,
+// and give platform-appropriate guidance in triggerInstall().
+function showInstallBtn() {
+  if (_isStandalone) return;   // already running as installed PWA — hide it
+  document.getElementById('install-btn')?.classList.add('visible');
+}
+
+// Run on load for iOS, Android-without-prompt, and desktop
+showInstallBtn();
+
+// ── Install handler ───────────────────────────────────────────
 async function triggerInstall() {
-  if (!_installPrompt) return;
-  _installPrompt.prompt();
-  const { outcome } = await _installPrompt.userChoice;
-  if (outcome === 'accepted') {
-    document.getElementById('install-btn')?.classList.remove('visible');
+  // Best case: Chrome/Edge gave us a native prompt
+  if (_installPrompt) {
+    _installPrompt.prompt();
+    const { outcome } = await _installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      document.getElementById('install-btn')?.classList.remove('visible');
+    }
+    _installPrompt = null;
+    return;
   }
-  _installPrompt = null;
+
+  // Fallback: guide the user manually based on platform
+  if (!_isStandalone && typeof showToast === 'function') {
+    if (_isIOS) {
+      showToast('📱 Tap Share  →  "Add to Home Screen"');
+    } else if (_isAndroid) {
+      showToast('📲 Tap ⋮ menu  →  "Add to Home Screen" or "Install app"');
+    } else {
+      showToast('💻 Open browser menu  →  "Install SafeReach"');
+    }
+  }
 }
 </script>
 <script>
@@ -2320,6 +2357,11 @@ async function triggerInstall() {
       if (reg.active) {
         reg.active.postMessage({ type: 'GET_VERSION' });
       }
+
+      // Force the browser to check if sw.js has changed on every page load
+      // (default is max every 24h — this catches deploys immediately)
+      reg.update();
+      setInterval(() => reg.update(), 60 * 60 * 1000); // re-check hourly
     })
     .catch(err => console.warn('[SafeReach] SW registration failed:', err));
 
@@ -2346,6 +2388,22 @@ async function triggerInstall() {
       case 'VERSION_INFO':
         console.log(`[SafeReach] Running — deploy: ${deploy} | hash: ${hash}`);
         break;
+
+      case 'NEW_VERSION': {
+        // SW detected updated HTML (new ETag/Last-Modified from GitHub Pages).
+        // Auto-reload silently if the user has nothing in progress;
+        // otherwise show a persistent toast so they can reload manually.
+        const hasPendingInput =
+          document.querySelector('textarea')?.value.trim().length > 0 ||
+          document.querySelector('.report-type-btn.sel') !== null;
+        if (!hasPendingInput) {
+          if (typeof showToast === 'function') showToast('🔄 Updating SafeReach…');
+          setTimeout(() => window.location.reload(), 1200);
+        } else {
+          if (typeof showToast === 'function') showToast('🔄 Update ready — reopen to apply');
+        }
+        break;
+      }
     }
   });
 
